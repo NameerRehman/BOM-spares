@@ -47,8 +47,6 @@ for i in range(bom_spares_unique.shape[0]):
     #assign all module occurences of "part" to bom_spares_unique MODULE column
     bom_spares_unique['MODULE'].iloc[i] = modules_list
     
-   ###GET SUM OF COLUMN INSTEAD
-    
     #filter bom_spares by "part" & output PROJ QTY column to a list
     total_qty = bom_spares[bom_spares['PART NUMBER'] == part]['PROJ\nQTY.'].to_list()
     
@@ -63,14 +61,5 @@ with pd.ExcelWriter('Spare Parts List.xlsx') as writer:
     bom.to_excel(writer, sheet_name='All Parts')
     bom_spares.to_excel(writer, sheet_name='Spares')
     bom_spares_unique.to_excel(writer, sheet_name='Spares Unqiue')
-
-# #read excel cell
-# workbook = open_workbook('BC-20-09.xls').sheet_by_index(0)
-# #row 3, column 2
-# module = workbook.cell(3,2).value
-# bom['MODULE'] = module
-
-# bom = pd.read_excel('BC-20-09.xls', header=7)
-
 
 
