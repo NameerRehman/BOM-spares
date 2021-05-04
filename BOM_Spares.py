@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 Created on Tue Apr 13 10:55:31 2021
 
@@ -37,7 +38,6 @@ class Odoo():
                         {'fields':['product_id','price_unit','discount','product_qty','product_uom','state','partner_id']})
         
         purch_price = pd.DataFrame(purch_price)
-        print(purch_price)
         return purch_price
     
     def getSalePrice(self):
@@ -52,54 +52,57 @@ class Odoo():
     
 
 class Spares():
-    def generate_list(self):
+    def __init__(self):
+        self.path = input("Enter path for module files: ") #Ex: C:/Users/nrehman/Documents/Modules
         #Read all xls files in user specified folder
-        path = input("Enter path for module files: ") #Ex: C:/Users/nrehman/Documents/Modules
-        all_modules = glob.glob(path + "/*.xls")
+        self.all_modules = glob.glob(self.path + "/*.xls")
         
-        outputfile_name = input('Enter name for output file: ')
-        outputfile_path = path + "/" + outputfile_name + ".xlsx"
+        self.outputfile_name = input('Enter name for output file: ')
+        self.outputfile_path = self.path + "/" + self.outputfile_name + ".xlsx"
         
+    
+    def generate_list(self):
+                
         #Append each file contents to dataframe
-        bom = pd.concat((pd.read_excel(m, header=7).assign(MODULE=os.path.basename(m)) for m in all_modules))
+        self.bom = pd.concat((pd.read_excel(m, header=7).assign(MODULE=os.path.basename(m)) for m in self.all_modules))
         
         #drop all rows containing NAs in Spare Class columns
-        bom = bom.dropna(subset = ['SPARE CLASS'])
+        self.bom = self.bom.dropna(subset = ['SPARE CLASS'])
         
         #Convert to string
-        bom['SPARE CLASS'] = bom['SPARE CLASS'].astype(str)
-        bom['MODULE'] = bom['MODULE'].astype(str)
+        self.bom['SPARE CLASS'] = self.bom['SPARE CLASS'].astype(str)
+        self.bom['MODULE'] = self.bom['MODULE'].astype(str)
         
         #Strip Spaces
-        bom['SPARE CLASS'] = bom['SPARE CLASS'].str.replace(' ','')
-        bom['MODULE'] = bom['MODULE'].str.replace('.xls','')
+        self.bom['SPARE CLASS'] = self.bom['SPARE CLASS'].str.replace(' ','')
+        self.bom['MODULE'] = self.bom['MODULE'].str.replace('.xls','')
         
         #Sort df by Spare Class values
-        bom['SPARE CLASS'] = pd.Categorical(bom['SPARE CLASS'], ['1','2','3','9','X'])
-        bom = bom.sort_values('SPARE CLASS')
+        self.bom['SPARE CLASS'] = pd.Categorical(self.bom['SPARE CLASS'], ['1','2','3','9','X'])
+        self.bom = self.bom.sort_values('SPARE CLASS')
         
         #Create new df without Space Class 'X' items
-        bom_spares = bom[bom['SPARE CLASS'] != 'X']
+        self.bom_spares = self.bom[self.bom['SPARE CLASS'] != 'X']
         
         #Create new df without duplicates
-        bom_spares_unique = bom_spares.drop_duplicates(subset = ['PART NUMBER'])
+        self.bom_spares_unique = self.bom_spares.drop_duplicates(subset = ['PART NUMBER'])
         
         #Iterate through each unique part in df
-        for i in range(bom_spares_unique.shape[0]):
+        for i in range(self.bom_spares_unique.shape[0]):
             #extract part number
-            part = bom_spares_unique['PART NUMBER'].iloc[i]
+            part = self.bom_spares_unique['PART NUMBER'].iloc[i]
             
             #filter bom_spares by "part" & output MODULE column to a list
             #provides all module occurences of "part"
-            modules_list = bom_spares[bom_spares['PART NUMBER'] == part]['MODULE'].to_list()
+            modules_list = self.bom_spares[self.bom_spares['PART NUMBER'] == part]['MODULE'].to_list()
             
             #replace MODULE column in bom_spares_unique with modules_list
-            bom_spares_unique['MODULE'].iloc[i] = modules_list
+            self.bom_spares_unique['MODULE'].iloc[i] = modules_list
             
            ##TODO: GET SUM OF COLUMN INSTEAD to reduce O^n##
             
             #filter bom_spares by "part" & output PROJ QTY column to a list
-            total_qty = bom_spares[bom_spares['PART NUMBER'] == part]['PROJ\nQTY.'].to_list()
+            total_qty = self.bom_spares[self.bom_spares['PART NUMBER'] == part]['PROJ\nQTY.'].to_list()
             
             #Calculate sum of list
             total_qty_sum = 0
@@ -108,32 +111,38 @@ class Spares():
                     total_qty_sum+=j
                 except:
                     "Couldnt add qty"
-            bom_spares_unique['PROJ\nQTY.'].iloc[i] = total_qty_sum
+            self.bom_spares_unique['PROJ\nQTY.'].iloc[i] = total_qty_sum
         
+        return self.bom_spares_unique
+        
+    def export_list(self): 
         #Export df to excel sheet
-        with pd.ExcelWriter(outputfile_path) as writer:
-            bom.to_excel(writer, sheet_name='All Parts')
-            bom_spares.to_excel(writer, sheet_name='Spares')
-            bom_spares_unique.to_excel(writer, sheet_name='Spares Unqiue')
+        with pd.ExcelWriter(self.outputfile_path) as writer:
+            self.bom.to_excel(writer, sheet_name='All Parts')
+            self.bom_spares.to_excel(writer, sheet_name='Spares')
+            self.bom_spares_unique.to_excel(writer, sheet_name='Spares Unqiue')
         
-        print("\n Spare Parts List Created, " + outputfile_path)
+        print("\n Spare Parts List Created, " + self.outputfile_path)
+        
+
+class Db(object):
+    def __init__(self,odoo,spares):
+        self.df_purchprice = odoo.getPurchasePrice()
+        self.df_spares = spares.generate_list()
+        print(self.df_spares)
+        print(self.df_purchprice)
         
 
 
 
 
 odoo = Odoo()
+spares = Spares()
 username = input("Enter Odoo Username: ")
 password = input("Enter password: ")
-odoo.authenticate(username,password)
+odoo.authenticate(username, password)
 #df1= odoo.getPurchasePrice()
 #odoo.getSalePrice()
         
 
-class Db(object):
-    def __init__(self,odoo_data):
-        self.test = odoo_data.getPurchasePrice()
-        print(self.test)
-        
-test1 = Db(odoo)    
-    
+test1 = Db(odoo, spares)    
